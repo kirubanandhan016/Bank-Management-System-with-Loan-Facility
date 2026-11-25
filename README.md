@@ -34,7 +34,7 @@ This is an educational simulation, not a real banking application. Account data 
 
 - Persistent storage with SQLite
 - Unit tests for deposits, withdrawals, and balance invariants
-- Secure credential handling
+- Salted PBKDF2-HMAC-SHA256 hashing for the demo account PINs
 - Transaction history
 - Explicit loan approval and repayment states
 
