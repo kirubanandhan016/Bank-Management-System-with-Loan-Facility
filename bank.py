@@ -1,12 +1,28 @@
 from decimal import Decimal, InvalidOperation
+import hashlib
+import hmac
+import secrets
 
 accounts = {}
 
 
+def hash_pin(pin):
+    """Return a salted PBKDF2-HMAC-SHA256 hash for a four-digit PIN."""
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", pin.encode("utf-8"), salt, 200_000)
+    return salt, digest
+
+
+def verify_pin(pin, salt, expected_digest):
+    """Verify a PIN without storing or comparing plaintext credentials."""
+    actual_digest = hashlib.pbkdf2_hmac("sha256", pin.encode("utf-8"), salt, 200_000)
+    return hmac.compare_digest(actual_digest, expected_digest)
+
+
 def get_amount(prompt):
     try:
-        amount = Decimal(input(prompt))
-    except InvalidOperation:
+        amount = Decimal(input(prompt)).quantize(Decimal("0.01"))
+    except (InvalidOperation, ValueError):
         print("Enter a valid amount.")
         return None
 
@@ -14,7 +30,7 @@ def get_amount(prompt):
         print("Amount must be greater than zero.")
         return None
 
-    return amount.quantize(Decimal("0.01"))
+    return amount
 
 
 def create_account():
@@ -37,9 +53,11 @@ def create_account():
         print("PIN must contain exactly 4 digits.")
         return
 
+    pin_salt, pin_hash = hash_pin(pin)
     accounts[account_number] = {
         "name": name,
-        "pin": pin,
+        "pin_salt": pin_salt,
+        "pin_hash": pin_hash,
         "balance": Decimal("0.00"),
         "loan_balance": Decimal("0.00"),
     }
@@ -105,7 +123,7 @@ def login():
     account_number = input("Account number: ").strip()
     pin = input("PIN: ").strip()
     account = accounts.get(account_number)
-    if account is None or account["pin"] != pin:
+    if account is None or not verify_pin(pin, account["pin_salt"], account["pin_hash"]):
         print("Invalid account number or PIN.")
         return
     print(f"Welcome, {account['name']}.")
